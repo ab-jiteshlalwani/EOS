@@ -29,7 +29,6 @@ def quantum_optimize_eos_schedule(request):
     if request.method == 'POST':
         try:
             received_json_data = json.loads(request.body.decode("utf-8"))
-
             auth_header = request.META['HTTP_AUTHORIZATION']
 
             BASE_DIR = Path(__file__).resolve().parent.parent
@@ -41,7 +40,6 @@ def quantum_optimize_eos_schedule(request):
                 response = {"Results": "Missing or incorrect Bearer Token"}
             else:
                 input_json = received_json_data['input_json']
-                # print(request)
                 response = optimize_eos_using_quantum(input_json)
                 quantum_results_json = {"Results": response}
                 return JsonResponse(quantum_results_json)
@@ -213,8 +211,8 @@ def optimize_eos_using_quantum(input_json):
 
         qstart = time.time()
 
-        sampler = LeapHybridCQMSampler(token="DEV-a837e60da7c343e9e89595965e4d264c5db6c402")
-        sampleset = sampler.sample_cqm(cqm)
+        sampler = LeapHybridCQMSampler(token="DEV-5f5b549e0a8c30e7331f2d20a4f5551ce2f8b07c")
+        sampleset = sampler.sample_cqm(cqm, label="EOS Optimizer")
         # sampleset = ExactCQMSolver().sample_cqm(cqm)
         feasible_sampleset = sampleset.filter(lambda row: row.is_feasible)
         result = []
@@ -225,46 +223,11 @@ def optimize_eos_using_quantum(input_json):
         qend = time.time()
         q_time = (qend - qstart) * 10 ** 3
 
-        quantum_out_json_inter = post(result, converted_dict, size_dict, priorities_dict, energies_dict, target_, gs1_,
-                                      gs2_, gs3_, q_targets,
-                                      sizes, energy,
-                                      energy_limit_, q_time)
+        output_json = post(result, converted_dict, size_dict, priorities_dict, energies_dict, target_, gs1_,
+                           gs2_, gs3_, q_targets,
+                           sizes, energy,
+                           energy_limit_, q_time)
 
-        cstart = time.time()
-
-        bqm, invert = dimod.cqm_to_bqm(cqm)
-        sampler = neal.SimulatedAnnealingSampler()
-        sampleset = sampler.sample(bqm, seed=1234,
-                                   beta_range=[0.1, 4.2],
-                                   num_sweeps=20,
-                                   beta_schedule_type='geometric')
-        data = sampleset.first.sample
-
-        sa = []
-        for i in targets:
-            if (data[f"t{i}"]) == 1:
-                sa.append(i)
-
-        cend = time.time()
-        c_time = (cend - cstart) * 10 ** 3
-
-        simulated_out_json_inter = post(sa, converted_dict, size_dict, priorities_dict, energies_dict, target_, gs1_,
-                                        gs2_, gs3_, q_targets, sizes,
-                                        energy, energy_limit_, c_time)
-
-        output_json = {"Quantum Result": quantum_out_json_inter["Result"],
-                       "Quantum Total Priority": quantum_out_json_inter["Total Priority"],
-                       "Quantum Execution Time": quantum_out_json_inter["Execution Time"],
-                       "Quantum Satisfied all Constraints?": quantum_out_json_inter["Satisfied all Constraints?"],
-                       "Quantum Constraints Not Satisfied": quantum_out_json_inter["Constraints Not Satisfied"],
-                       "Simulated Annealing Result": simulated_out_json_inter["Result"],
-                       "Simulated Annealing Total Priority": simulated_out_json_inter["Total Priority"],
-                       "Simulated Annealing Execution Time": simulated_out_json_inter["Execution Time"],
-                       "Simulated Annealing Satisfied all Constraints?": simulated_out_json_inter[
-                           "Satisfied all Constraints?"],
-                       "Simulated Annealing Constraints Not Satisfied": simulated_out_json_inter[
-                           "Constraints Not Satisfied"],
-                       }
         output_json_array.append(output_json)
     return output_json_array
 
@@ -377,6 +340,19 @@ def post(res, converted_dict, size_dict, priorities_dict, energies_dict, target_
         sum_size.append(sum(um_s))
         sum_energy.append(sum(um_e))
 
+    satellite_1 = []
+    satellite_2 = []
+    satellite_3 = []
+    satellite_row = 0
+    for first_d in iq:
+        if satellite_row == 0:
+            satellite_1 = list(chain(*first_d))
+        elif satellite_row == 1:
+            satellite_2 = list(chain(*first_d))
+        elif satellite_row == 2:
+            satellite_3 = list(chain(*first_d))
+        satellite_row = satellite_row + 1
+
     gs_list = [gs1_, gs2_, gs3_]
     for i, j, k in zip(gs_list, sum_s, sum_size):
         if k > (-1 * sum(i)):
@@ -391,10 +367,11 @@ def post(res, converted_dict, size_dict, priorities_dict, energies_dict, target_
         if "Energy limit not satisfied" not in unsatisfied_conditions:
             unsatisfied_conditions.append("Energy limit not satisfied")
 
-    out_json_inter = {"Result": res, "Total Priority": priority_results, "Execution Time": str(a_time) + " ms",
-                      "Satisfied all Constraints?": conditions_satisfied,
-                      "Constraints Not Satisfied": unsatisfied_conditions}
-    return out_json_inter
+    output_json = {"Result": str(list(chain(*list(chain(*iq))))), "Total Priority": priority_results,
+                   "Execution Time": float(a_time), "Satisfied all Constraints?": conditions_satisfied,
+                   "Constraints Not Satisfied": unsatisfied_conditions, "Targets for Satellite 1": str(satellite_1),
+                   "Targets for Satellite 2": str(satellite_2), "Targets for Satellite 3": str(satellite_3)}
+    return output_json
 
 
 def add_negative_pairs(lst):

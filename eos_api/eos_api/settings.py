@@ -24,9 +24,9 @@ with open(str(BASE_DIR) + '/eos_api/secretkey.txt', 'r') as f:
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = False
 
-ALLOWED_HOSTS = ['api.artificialbrain.tech', '54.69.158.192', 'localhost', 'http://127.0.0.1']
+ALLOWED_HOSTS = ['api.artificialbrain.tech', '52.11.223.84']
 
-# ALLOWED_HOSTS = ['*']
+ALLOWED_HOSTS = ['*']
 
 # Application definition
 
@@ -155,7 +155,8 @@ LOGGING = {
         'file': {
             'level': 'DEBUG',
             'class': 'logging.FileHandler',
-            'filename': '/home/ubuntu/logs/debug.log',
+            'filename': '/home/jlalwani/Documents/logs/debug.log'
+            # 'filename': '/home/ubuntu/logs/django/debug.log',
         },
     },
     'loggers': {
