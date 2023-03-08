@@ -1,1 +1,2 @@
 from quantum_optimize_eos.views.quantum_optimize_view import quantum_optimize_eos_schedule
+from quantum_optimize_eos.views.euspa_optimize_view import euspa_optimize_eos_schedule

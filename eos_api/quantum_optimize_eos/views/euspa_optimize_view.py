@@ -20,22 +20,17 @@ warnings.filterwarnings('ignore')
 
 @csrf_exempt
 @throttle_classes([UserRateThrottle])
-def quantum_optimize_eos_schedule(request):
+def euspa_optimize_eos_schedule(request):
     if request.method == 'POST':
         try:
             received_json_data = json.loads(request.body.decode("utf-8"))
-            auth_header = request.META['HTTP_AUTHORIZATION']
+            api_key = received_json_data['API_KEY']
 
-            BASE_DIR = Path(__file__).resolve().parent.parent
-
-            with open(str(BASE_DIR) + '/views/bearer.txt', 'r') as f:
-                BEARER_TOKEN = f.read().strip()
-
-            if auth_header != BEARER_TOKEN:
-                response = {"Results": "Missing or incorrect Bearer Token"}
+            if api_key is None or api_key == '':
+                response = {"Results": "API_KEY is missing"}
             else:
                 input_json = received_json_data['input_json']
-                response = {"Results": optimize_eos_using_quantum(input_json)}
+                response = {"Results": euspa_eos_using_quantum(input_json, api_key)}
 
             return JsonResponse(response)
         except RequestException as request_error:
@@ -46,7 +41,7 @@ def quantum_optimize_eos_schedule(request):
             return JsonResponse(response)
 
 
-def optimize_eos_using_quantum(input_json):
+def euspa_eos_using_quantum(input_json, api_key):
     output_json_array = []
 
     for input in input_json:
@@ -205,7 +200,7 @@ def optimize_eos_using_quantum(input_json):
 
         qstart = time.time()
 
-        sampler = LeapHybridCQMSampler(token="DEV-a837e60da7c343e9e89595965e4d264c5db6c402")
+        sampler = LeapHybridCQMSampler(token=api_key)
         sampleset = sampler.sample_cqm(cqm, label="EOS Optimizer")
         # sampleset = ExactCQMSolver().sample_cqm(cqm)
         feasible_sampleset = sampleset.filter(lambda row: row.is_feasible)
